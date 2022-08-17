@@ -1,4 +1,4 @@
-# import owncloud
+import owncloud
 from Adapter.FileWorker import FileWorker
 from Adapter.PatinentAdapter import ReadPatient
 from keras.layers import Dense
@@ -31,7 +31,7 @@ def upload_model(path='model/weight.h5'):
     network.load_weights(path)
     return network
 
-def create_and_mark_dataset(model, path_observ='/home/user/projects/obs/home/user/observs'):
+def create_and_mark_dataset(model, path_observ='obs/home/user/observs'):
     directory = os.listdir(path_observ)
     for folder in directory:
         parser = ReadPatient()
@@ -42,10 +42,47 @@ def create_and_mark_dataset(model, path_observ='/home/user/projects/obs/home/use
         fl = FileWorker('send')
         fl.save_patient(parser.patient)
 
+def send_file_analysis(file_name, names):
+    if names.find('zip') != -1:
+        return
+    oc = owncloud.Client("https://127.0.0.1")
+    oc.login("user", "user")
+    with ZipFile(file_name + '.zip', 'w') as zipObj:
+        directory = os.listdir(file_name)
+        for component in directory:
+            zipObj.write(file_name+'/'+component)
+    print('complete observs')
+    oc.put_file(r'Analysis/'+names, file_name + '.zip')
 
+def send_file_train(file_name, names):
+    oc = owncloud.Client("https://127.0.0.1")
+    oc.login("user", "user")
+    if names.find('zip') != -1:
+            return
+    with ZipFile(file_name + '.zip', 'w') as zipObj:
+        directory = os.listdir(file_name)
+        for component in directory:
+            zipObj.write(file_name+'/'+component)
+    oc.put_file(r'TrainSet/'+names, file_name + '.zip')
 
+def send_folder_to_server(path=None, and_train=False):
+    directory = os.listdir(path)
+    print(directory)
+    for file in directory:
+        send_file_analysis(path+r'/'+file, file)
+    if and_train:
+        for file in directory:
+            send_file_train(path + r'/' + file, file)
+
+def clear_memory(path=None):
+    if path is None:
+        path = path_project
+    directory = os.listdir(path)
+    for file in directory:
+        os.remove(path+r'/'+file)
 
 if __name__ == '__main__':
     download_analysis_res()
     mdl = upload_model()
-    create_and_mark_dataset(mdl, r'D:\Programs\PyCharm\server-svico\obs\home\user\observs')
+    create_and_mark_dataset(mdl)
+    send_folder_to_server(path='send', and_train=True)
